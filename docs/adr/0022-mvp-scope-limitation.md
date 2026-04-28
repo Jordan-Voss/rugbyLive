@@ -14,3 +14,16 @@ Limit data ingestion to:
 
 - faster delivery
 - manageable scope
+
+## Implementation Notes
+
+- ingestion jobs filter seasons by configured date windows
+- allow the window to expand post-MVP without schema changes
+
+## References
+
+- docs/mvp-scope.md
+
+## Consequences
+
+- limits historical data coverage in MVP

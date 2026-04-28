@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "RugbyLive",
+    "slug": "rugby-live",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/brand/icon.png",
+    "scheme": "app",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/brand/icon.png",
+      "bundleIdentifier": "com.jordanvoss.rugbylive",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2E3E54",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/brand/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#2E3E54",
+          "android": {
+            "image": "./assets/brand/splash.png",
+            "imageWidth": 76
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "abdeb485-0534-426a-8b30-fe83e53692a7"
+      }
+    },
+    "owner": "jimjimjimmels"
+  }
+}
