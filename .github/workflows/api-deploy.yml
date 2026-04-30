@@ -56,6 +56,12 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Write SSH public key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > ~/.ssh/rugbylive.pub
+          chmod 644 ~/.ssh/rugbylive.pub
+          
       - name: Terraform Apply
         working-directory: infra/terraform
         run: |
