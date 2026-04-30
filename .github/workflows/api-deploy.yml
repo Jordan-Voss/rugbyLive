@@ -69,7 +69,7 @@ jobs:
           chmod 600 ~/.ssh/rugbylive
 
           scp -i ~/.ssh/rugbylive -o StrictHostKeyChecking=no \
-            docker-compose.prod.yml Caddyfile \
+            docker-compose.yml Caddyfile \
             ubuntu@$EC2_HOST:/tmp/
 
       - name: Deploy on EC2
