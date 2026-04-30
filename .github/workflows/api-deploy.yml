@@ -1,0 +1,96 @@
+name: Deploy API
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "apps/api/rugbylive/**"
+      - ".github/workflows/api-deploy.yml"
+
+jobs:
+  deploy:
+    name: Build and deploy API
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/api/rugbylive
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Run tests
+        env:
+          DB_URL: jdbc:h2:mem:testdb
+          DB_USERNAME: sa
+          DB_PASSWORD: password
+          SUPABASE_PROJECT_URL: https://example.supabase.co
+          CORS_ALLOWED_ORIGINS: http://localhost:8081
+        run: ./mvnw clean test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REPOSITORY: ${{ secrets.API_ECR_REPOSITORY_URL }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REPOSITORY:latest
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REPOSITORY:latest
+
+      - name: Copy deploy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "apps/api/rugbylive/docker-compose.prod.yml,apps/api/rugbylive/Caddyfile"
+          target: "/opt/rugbylive"
+          strip_components: 3
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /opt/rugbylive
+
+            cat > .env << EOF
+            API_IMAGE=${{ secrets.API_ECR_REPOSITORY_URL }}:latest
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            SUPABASE_PROJECT_URL=${{ secrets.SUPABASE_PROJECT_URL }}
+            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
+            EOF
+
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}
+
+            docker compose --env-file .env -f docker-compose.prod.yml pull
+            docker compose --env-file .env -f docker-compose.prod.yml up -d
+            docker image prune -f
