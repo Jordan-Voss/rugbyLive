@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/api/rugbylive
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Run API tests
+        env:
+          DB_URL: jdbc:h2:mem:testdb
+          DB_USERNAME: sa
+          DB_PASSWORD: password
+          SUPABASE_PROJECT_URL: https://example.supabase.co
+          SUPABASE_JWKS_URI: https://example.supabase.co/auth/v1/.well-known/jwks.json
+          CORS_ALLOWED_ORIGINS: http://localhost:8081
+        run: ./mvnw clean test
+
+  app:
+    name: App
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
