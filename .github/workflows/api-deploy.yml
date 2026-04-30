@@ -61,7 +61,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > ~/.ssh/rugbylive.pub
           chmod 644 ~/.ssh/rugbylive.pub
-          
+
       - name: Terraform Apply
         working-directory: infra/terraform
         run: |
@@ -122,7 +122,8 @@ jobs:
           script: |
             set -e
 
-            mkdir -p /opt/rugbylive
+            sudo mkdir -p /opt/rugbylive
+            sudo chown -R ubuntu:ubuntu /opt/rugbylive
             cd /opt/rugbylive
 
             aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ needs.provision.outputs.ecr_repository_url }}
