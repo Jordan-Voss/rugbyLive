@@ -65,9 +65,10 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "apps/api/rugbylive/docker-compose.prod.yml,apps/api/rugbylive/Caddyfile"
-          target: "/opt/rugbylive"
-          strip_components: 3
+          source: |
+            apps/api/rugbylive/docker-compose.prod.yml
+            apps/api/rugbylive/Caddyfile
+          target: "/tmp/rugbylive-deploy"
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -77,6 +78,11 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+
+            sudo mkdir -p /opt/rugbylive
+            sudo cp /tmp/rugbylive-deploy/apps/api/rugbylive/docker-compose.prod.yml /opt/rugbylive/docker-compose.prod.yml
+            sudo cp /tmp/rugbylive-deploy/apps/api/rugbylive/Caddyfile /opt/rugbylive/Caddyfile
+            sudo chown -R ubuntu:ubuntu /opt/rugbylive
 
             cd /opt/rugbylive
 
