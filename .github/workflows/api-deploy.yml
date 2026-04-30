@@ -1,4 +1,4 @@
-name: Deploy API
+name: API AWS Deployment
 
 on:
   push:
@@ -6,30 +6,26 @@ on:
       - master
       - main
     paths:
-      - "apps/api/rugbylive/**"
+      - "apps/api/**"
+      - "infra/terraform/**"
       - ".github/workflows/api-deploy.yml"
 
 jobs:
-  deploy:
-    name: Build and deploy API
+  test-and-package:
+    name: Test API
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: apps/api/rugbylive
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: temurin
           java-version: "25"
+          distribution: temurin
           cache: maven
 
-      - name: Run tests
+      - name: Build and Test
+        working-directory: ./apps/api/rugbylive
         env:
           DB_URL: jdbc:h2:mem:testdb
           DB_USERNAME: sa
@@ -38,67 +34,131 @@ jobs:
           CORS_ALLOWED_ORIGINS: http://localhost:8081
         run: ./mvnw clean test
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+  provision:
+    name: Provision AWS
+    needs: test-and-package
+    runs-on: ubuntu-latest
+
+    outputs:
+      instance_ip: ${{ steps.outputs.outputs.instance_ip }}
+      ecr_repository_url: ${{ steps.outputs.outputs.ecr_repository_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve \
+            -var="ssh_allowed_cidr=0.0.0.0/0" \
+            -var="public_key_path=$HOME/.ssh/rugbylive.pub"
+
+      - name: Read Terraform Outputs
+        id: outputs
+        working-directory: infra/terraform
+        run: |
+          echo "instance_ip=$(terraform output -raw api_public_ip)" >> "$GITHUB_OUTPUT"
+          echo "ecr_repository_url=$(terraform output -raw api_ecr_repository_url)" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy API
+    needs:
+      - test-and-package
+      - provision
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write SSH public key for Terraform compatibility
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > ~/.ssh/rugbylive.pub
+
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
 
       - name: Login to ECR
-        id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push Docker image
+      - name: Build and Push Image
         env:
-          ECR_REPOSITORY: ${{ secrets.API_ECR_REPOSITORY_URL }}
-          IMAGE_TAG: ${{ github.sha }}
+          ECR_REPOSITORY_URI: ${{ needs.provision.outputs.ecr_repository_url }}
         run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REPOSITORY:latest
-          docker push $ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REPOSITORY:latest
+          docker build -t $ECR_REPOSITORY_URI:${{ github.sha }} ./apps/api/rugbylive
+          docker tag $ECR_REPOSITORY_URI:${{ github.sha }} $ECR_REPOSITORY_URI:latest
+          docker push $ECR_REPOSITORY_URI:${{ github.sha }}
+          docker push $ECR_REPOSITORY_URI:latest
 
-      - name: Copy deploy files to EC2
-        env:
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/rugbylive
-          chmod 600 ~/.ssh/rugbylive
-
-          scp -i ~/.ssh/rugbylive -o StrictHostKeyChecking=no \
-            docker-compose.yml Caddyfile \
-            ubuntu@$EC2_HOST:/tmp/
-
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.2.0
+      - name: SSH and Deploy
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ needs.provision.outputs.instance_ip }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          debug: true
           script: |
             set -e
 
-            sudo mkdir -p /opt/rugbylive
-            sudo cp /tmp/docker-compose.prod.yml /opt/rugbylive/docker-compose.prod.yml
-            sudo cp /tmp/Caddyfile /opt/rugbylive/Caddyfile
-            sudo chown -R ubuntu:ubuntu /opt/rugbylive
-
+            mkdir -p /opt/rugbylive
             cd /opt/rugbylive
 
-            cat > .env << EOF
-            API_IMAGE=${{ secrets.API_ECR_REPOSITORY_URL }}:latest
-            DB_URL=${{ secrets.DB_URL }}
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            SUPABASE_PROJECT_URL=${{ secrets.SUPABASE_PROJECT_URL }}
-            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ needs.provision.outputs.ecr_repository_url }}
+
+            cat <<EOF > Caddyfile
+            api.rugbylive.jordanvoss.dev {
+                reverse_proxy api:8080
+            }
             EOF
 
-            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}
+            cat <<EOF > docker-compose.yml
+            services:
+              api:
+                container_name: rugbylive-api
+                image: ${{ needs.provision.outputs.ecr_repository_url }}:latest
+                environment:
+                  DB_URL: ${{ secrets.DB_URL }}
+                  DB_USERNAME: ${{ secrets.DB_USERNAME }}
+                  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+                  CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+                restart: unless-stopped
 
-            docker compose --env-file .env -f docker-compose.prod.yml pull
-            docker compose --env-file .env -f docker-compose.prod.yml up -d
+              caddy:
+                container_name: rugbylive-caddy
+                image: caddy:2
+                ports:
+                  - "80:80"
+                  - "443:443"
+                volumes:
+                  - ./Caddyfile:/etc/caddy/Caddyfile:ro
+                  - caddy_data:/data
+                  - caddy_config:/config
+                depends_on:
+                  - api
+                restart: unless-stopped
+
+            volumes:
+              caddy_data:
+              caddy_config:
+            EOF
+
+            docker compose pull
+            docker compose up -d
             docker image prune -f
