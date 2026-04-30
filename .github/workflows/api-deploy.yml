@@ -60,15 +60,17 @@ jobs:
           docker push $ECR_REPOSITORY:latest
 
       - name: Copy deploy files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: |
-            apps/api/rugbylive/docker-compose.prod.yml
-            apps/api/rugbylive/Caddyfile
-          target: "/tmp/rugbylive-deploy"
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/rugbylive
+          chmod 600 ~/.ssh/rugbylive
+
+          scp -i ~/.ssh/rugbylive -o StrictHostKeyChecking=no \
+            docker-compose.prod.yml Caddyfile \
+            ubuntu@$EC2_HOST:/tmp/
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -80,8 +82,8 @@ jobs:
             set -e
 
             sudo mkdir -p /opt/rugbylive
-            sudo cp /tmp/rugbylive-deploy/apps/api/rugbylive/docker-compose.prod.yml /opt/rugbylive/docker-compose.prod.yml
-            sudo cp /tmp/rugbylive-deploy/apps/api/rugbylive/Caddyfile /opt/rugbylive/Caddyfile
+            sudo cp /tmp/docker-compose.prod.yml /opt/rugbylive/docker-compose.prod.yml
+            sudo cp /tmp/Caddyfile /opt/rugbylive/Caddyfile
             sudo chown -R ubuntu:ubuntu /opt/rugbylive
 
             cd /opt/rugbylive
