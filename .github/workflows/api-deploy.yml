@@ -132,5 +132,11 @@ jobs:
               caddy_data:
             EOF
 
+            cat <<EOF > Caddyfile
+              api.rugbylive.jordanvoss.dev {
+                  reverse_proxy rugbylive-api:8080
+              }
+              EOF
+
             docker compose pull
             docker compose up -d
