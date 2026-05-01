@@ -20,3 +20,12 @@ terraform {
 provider "aws" {
   region = "eu-west-1"
 }
+
+resource "aws_eip" "api_ip" {
+  instance = aws_instance.api.id
+  domain   = "vpc"
+}
+
+resource "aws_ecr_repository" "api" {
+  name = "rugbylive-api"
+}
