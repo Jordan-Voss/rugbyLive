@@ -136,7 +136,7 @@ jobs:
               api.rugbylive.jordanvoss.dev {
                   reverse_proxy rugbylive-api:8080
               }
-              EOF
+            EOF
 
             docker compose pull
             docker compose up -d
