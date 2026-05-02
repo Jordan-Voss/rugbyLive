@@ -3,43 +3,68 @@ name: API AWS Deployment
 on:
   push:
     branches: [main, master]
+    paths:
+      - "apps/api/**"
+      - "infra/terraform/**"
+      - ".github/workflows/api-deploy.yml"
 
 jobs:
-  deploy:
+  test:
+    name: Test API
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/api/rugbylive
 
     steps:
       - uses: actions/checkout@v4
 
-      # -------------------------
-      # JAVA TEST
-      # -------------------------
-      - uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           java-version: "25"
           distribution: temurin
+          cache: maven
 
-      - name: Test API
-        working-directory: apps/api/rugbylive
+      - name: Run tests
+        env:
+          DB_URL: jdbc:h2:mem:testdb
+          DB_USERNAME: sa
+          DB_PASSWORD: password
+          SUPABASE_PROJECT_URL: https://example.supabase.co
+          SUPABASE_JWKS_URI: https://example.supabase.co/auth/v1/.well-known/jwks.json
+          CORS_ALLOWED_ORIGINS: http://localhost:8081
         run: ./mvnw clean test
 
-      # -------------------------
-      # AWS + TERRAFORM
-      # -------------------------
-      - uses: aws-actions/configure-aws-credentials@v4
+  provision:
+    name: Provision AWS
+    runs-on: ubuntu-latest
+    needs: test
+
+    outputs:
+      ip: ${{ steps.tf.outputs.IP }}
+      ecr: ${{ steps.tf.outputs.ECR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
 
       - name: Write SSH public key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > ~/.ssh/rugbylive.pub
 
-      - name: Terraform Apply
+      - name: Terraform apply
         id: tf
         working-directory: infra/terraform
         run: |
@@ -47,32 +72,54 @@ jobs:
           terraform apply -auto-approve \
             -var="public_key_path=$HOME/.ssh/rugbylive.pub"
 
-          echo "IP=$(terraform output -raw api_public_ip)" >> $GITHUB_OUTPUT
-          echo "ECR=$(terraform output -raw api_ecr_repository_url)" >> $GITHUB_OUTPUT
+          echo "IP=$(terraform output -raw api_public_ip)" >> "$GITHUB_OUTPUT"
+          echo "ECR=$(terraform output -raw api_ecr_repository_url)" >> "$GITHUB_OUTPUT"
 
-      # -------------------------
-      # BUILD + PUSH IMAGE
-      # -------------------------
-      - uses: aws-actions/amazon-ecr-login@v2
+  build:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    needs: provision
 
-      - name: Build & Push Docker Image
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
         run: |
-          docker build -t ${{ steps.tf.outputs.ECR }}:latest ./apps/api/rugbylive
-          docker push ${{ steps.tf.outputs.ECR }}:latest
+          docker build -t ${{ needs.provision.outputs.ecr }}:${{ github.sha }} ./apps/api/rugbylive
+          docker tag ${{ needs.provision.outputs.ecr }}:${{ github.sha }} ${{ needs.provision.outputs.ecr }}:latest
 
-      # -------------------------
-      # SSH DEPLOY
-      # -------------------------
-      - name: Deploy to EC2
+      - name: Push Docker image
+        run: |
+          docker push ${{ needs.provision.outputs.ecr }}:${{ github.sha }}
+          docker push ${{ needs.provision.outputs.ecr }}:latest
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs:
+      - provision
+      - build
+
+    steps:
+      - name: Deploy containers
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ steps.tf.outputs.IP }}
+          host: ${{ needs.provision.outputs.ip }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
 
-            # Install Docker + AWS CLI ONLY if missing
             if ! command -v docker >/dev/null; then
               sudo apt-get update
               sudo apt-get install -y ca-certificates curl gnupg unzip
@@ -100,13 +147,13 @@ jobs:
             mkdir -p ~/rugbylive
             cd ~/rugbylive
 
-            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ steps.tf.outputs.ECR }}
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin ${{ needs.provision.outputs.ecr }}
 
             cat <<EOF > docker-compose.yml
             services:
               rugbylive-api:
                 container_name: rugbylive-api
-                image: ${{ steps.tf.outputs.ECR }}:latest
+                image: ${{ needs.provision.outputs.ecr }}:latest
                 ports:
                   - "8080:8080"
                 environment:
@@ -126,6 +173,8 @@ jobs:
                 volumes:
                   - ./Caddyfile:/etc/caddy/Caddyfile
                   - caddy_data:/data
+                depends_on:
+                  - rugbylive-api
                 restart: always
 
             volumes:
@@ -133,11 +182,32 @@ jobs:
             EOF
 
             cat <<EOF > Caddyfile
-              api.rugbylive.jordanvoss.dev {
-                  reverse_proxy rugbylive-api:8080
-              }
+            api.rugbylive.jordanvoss.dev {
+                reverse_proxy rugbylive-api:8080
+            }
             EOF
 
             docker compose down --remove-orphans || true
             docker compose pull
             docker compose up -d --remove-orphans
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Check health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS https://api.rugbylive.jordanvoss.dev/api/v1/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+
+            echo "API not ready yet, retrying..."
+            sleep 5
+          done
+
+          echo "API failed health check"
+          exit 1
