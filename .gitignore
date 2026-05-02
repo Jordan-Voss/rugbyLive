@@ -3,3 +3,5 @@ apps/api/rugbylive/src/main/resources/application-dev.properties
 *.env
 
 *.terraform
+
+*/node_modules
