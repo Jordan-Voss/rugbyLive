@@ -104,7 +104,7 @@ jobs:
 
             cat <<EOF > docker-compose.yml
             services:
-              api:
+              rugbylive-api:
                 container_name: rugbylive-api
                 image: ${{ steps.tf.outputs.ECR }}:latest
                 ports:
