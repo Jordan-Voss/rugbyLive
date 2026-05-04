@@ -5,3 +5,7 @@ apps/api/rugbylive/src/main/resources/application-dev.properties
 *.terraform
 
 */node_modules
+
+PROJECT_BLUEPRINT.md
+
+apps/api/rugbylive/AGENTS.md
