@@ -1,0 +1,26 @@
+provider: api-sports
+entityType: competition
+externalId: "76"
+
+canonicalKey: united-rugby-championship
+currentName: United Rugby Championship
+shortName: URC
+displayRegion: cross-border
+international: false
+gender: men
+
+participantCountryKeys:
+  - ireland
+  - italy
+  - south-africa
+  - scotland
+  - wales
+
+aliases:
+  - United Rugby Championship
+  - URC
+  - Pro14
+  - Pro 14
+  - Guinness Pro14
+  - Rainbow Cup
+

@@ -1,0 +1,27 @@
+provider: api-sports
+entityType: countries
+# Only entries where provider data needs correction.
+# All other countries are ingested directly using slug(providerName) + provider code.
+items:
+  # Hyphenated names — provider sends "South-Africa" / "New-Zealand"
+  south-africa:
+    canonicalKey: south-africa
+    name: South Africa
+    code: RSA
+  new-zealand:
+    canonicalKey: new-zealand
+    name: New Zealand
+    code: NZL
+  # GB nations — provider sends code "GB" for all three; rugby uses distinct codes
+  england:
+    canonicalKey: england
+    name: England
+    code: ENG
+  scotland:
+    canonicalKey: scotland
+    name: Scotland
+    code: SCO
+  wales:
+    canonicalKey: wales
+    name: Wales
+    code: WAL

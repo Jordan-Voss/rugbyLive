@@ -3,6 +3,7 @@ package dev.jordanvoss.rugbylive.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,7 +21,20 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    /** Dev profile: permit everything — no JWT required. */
     @Bean
+    @Profile("dev")
+    SecurityFilterChain devSecurityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .build();
+    }
+
+    /** All other profiles: enforce JWT auth as normal. */
+    @Bean
+    @Profile("!dev")
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
@@ -38,7 +52,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/v1/me").authenticated()
                         .requestMatchers("/api/v1/favourites/**").authenticated()
-                        .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_admin")
+                        .requestMatchers("/api/v1/admin/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
@@ -46,6 +60,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Profile("!dev")
     JwtDecoder jwtDecoder(@Value("${supabase.jwk-set-uri}") String jwkSetUri) {
         return NimbusJwtDecoder
                 .withJwkSetUri(jwkSetUri)

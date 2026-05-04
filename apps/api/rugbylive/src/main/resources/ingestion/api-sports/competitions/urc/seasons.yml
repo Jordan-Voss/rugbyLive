@@ -1,0 +1,110 @@
+provider: api-sports
+entityType: competitionSeasons
+competitionCanonicalKey: united-rugby-championship
+items:
+  "2019":
+    displayName: Pro14
+    shortName: Pro14
+  "2020":
+    displayName: Pro14
+    shortName: Pro14
+  "2021":
+    displayName: United Rugby Championship
+    shortName: URC
+    expectedTeamCanonicalKeys:
+      - leinster-rugby
+      - munster-rugby
+      - ulster-rugby
+      - connacht-rugby
+      - glasgow-warriors
+      - edinburgh-rugby
+      - cardiff-rugby
+      - dragons-rfc
+      - ospreys
+      - scarlets
+      - benetton-rugby
+      - zebre-parma
+      - bulls
+      - lions-south-africa
+      - sharks-south-africa
+      - stormers
+  "2022":
+    displayName: United Rugby Championship
+    shortName: URC
+    expectedTeamCanonicalKeys:
+      - leinster-rugby
+      - munster-rugby
+      - ulster-rugby
+      - connacht-rugby
+      - glasgow-warriors
+      - edinburgh-rugby
+      - cardiff-rugby
+      - dragons-rfc
+      - ospreys
+      - scarlets
+      - benetton-rugby
+      - zebre-parma
+      - bulls
+      - lions-south-africa
+      - sharks-south-africa
+      - stormers
+  "2023":
+    displayName: United Rugby Championship
+    shortName: URC
+    expectedTeamCanonicalKeys:
+      - leinster-rugby
+      - munster-rugby
+      - ulster-rugby
+      - connacht-rugby
+      - glasgow-warriors
+      - edinburgh-rugby
+      - cardiff-rugby
+      - dragons-rfc
+      - ospreys
+      - scarlets
+      - benetton-rugby
+      - zebre-parma
+      - bulls
+      - lions-south-africa
+      - sharks-south-africa
+      - stormers
+  "2024":
+    displayName: United Rugby Championship
+    shortName: URC
+    expectedTeamCanonicalKeys:
+      - leinster-rugby
+      - munster-rugby
+      - ulster-rugby
+      - connacht-rugby
+      - glasgow-warriors
+      - edinburgh-rugby
+      - cardiff-rugby
+      - dragons-rfc
+      - ospreys
+      - scarlets
+      - benetton-rugby
+      - zebre-parma
+      - bulls
+      - lions-south-africa
+      - sharks-south-africa
+      - stormers
+  "2025":
+    displayName: United Rugby Championship
+    shortName: URC
+    expectedTeamCanonicalKeys:
+      - leinster-rugby
+      - munster-rugby
+      - ulster-rugby
+      - connacht-rugby
+      - glasgow-warriors
+      - edinburgh-rugby
+      - cardiff-rugby
+      - dragons-rfc
+      - ospreys
+      - scarlets
+      - benetton-rugby
+      - zebre-parma
+      - bulls
+      - lions-south-africa
+      - sharks-south-africa
+      - stormers

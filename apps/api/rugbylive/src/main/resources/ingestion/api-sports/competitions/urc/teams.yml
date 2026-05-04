@@ -1,0 +1,111 @@
+provider: api-sports
+entityType: teams
+competitionCanonicalKey: united-rugby-championship
+items:
+  "392":
+    canonicalKey: benetton-rugby
+    name: Benetton Rugby
+    countryKey: italy
+    aliases:
+      - Benetton
+  "294":
+    canonicalKey: bulls
+    name: Bulls
+    countryKey: south-africa
+    aliases:
+      - Vodacom Bulls
+  "611":
+    canonicalKey: cardiff-rugby
+    name: Cardiff Rugby
+    countryKey: wales
+    aliases:
+      - Cardiff
+  "398":
+    canonicalKey: connacht-rugby
+    name: Connacht Rugby
+    countryKey: ireland
+    providerNameOverrideReason: API-Sports returns Connacht Eagles for URC.
+    aliases:
+      - Connacht
+      - Connacht Eagles
+  "396":
+    canonicalKey: dragons-rfc
+    name: Dragons RFC
+    countryKey: wales
+    aliases:
+      - Dragons
+      - Newport Gwent Dragons
+  "279":
+    canonicalKey: edinburgh-rugby
+    name: Edinburgh Rugby
+    countryKey: scotland
+    providerNameOverrideReason: API-Sports returns Edinburgh Academical for URC.
+    aliases:
+      - Edinburgh
+      - Edinburgh Academical
+  "406":
+    canonicalKey: glasgow-warriors
+    name: Glasgow Warriors
+    countryKey: scotland
+    aliases:
+      - Glasgow
+  "407":
+    canonicalKey: leinster-rugby
+    name: Leinster Rugby
+    countryKey: ireland
+    aliases:
+      - Leinster
+  "297":
+    canonicalKey: lions-south-africa
+    name: Lions
+    countryKey: south-africa
+    aliases:
+      - Lions
+      - Emirates Lions
+      - Golden Lions
+  "408":
+    canonicalKey: munster-rugby
+    name: Munster Rugby
+    countryKey: ireland
+    aliases:
+      - Munster
+  "394":
+    canonicalKey: ospreys
+    name: Ospreys
+    countryKey: wales
+    providerNameOverrideReason: API-Sports returns Ospreys PS for URC.
+    aliases:
+      - Ospreys PS
+  "397":
+    canonicalKey: scarlets
+    name: Scarlets
+    countryKey: wales
+    providerNameOverrideReason: API-Sports returns Scarlets PS for URC.
+    aliases:
+      - Scarlets PS
+  "302":
+    canonicalKey: sharks-south-africa
+    name: Sharks
+    countryKey: south-africa
+    aliases:
+      - Sharks
+      - Hollywoodbets Sharks
+      - Cell C Sharks
+  "621":
+    canonicalKey: stormers
+    name: Stormers
+    countryKey: south-africa
+    aliases:
+      - DHL Stormers
+  "409":
+    canonicalKey: ulster-rugby
+    name: Ulster Rugby
+    countryKey: ireland
+    aliases:
+      - Ulster
+  "395":
+    canonicalKey: zebre-parma
+    name: Zebre Parma
+    countryKey: italy
+    aliases:
+      - Zebre
